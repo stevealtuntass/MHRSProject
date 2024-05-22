@@ -10,6 +10,9 @@ import java.util.Map;
 public class MHRS {
     private static final Map<String, User> users = new HashMap<>();
     private static final List<Doctor> doctors = new ArrayList<>();
+    private static User loggedInUser;
+    private static JComboBox<String> dayComboBox = new JComboBox<>();
+    private static JComboBox<String> timeComboBox = new JComboBox<>();
 
     public static void initializeDoctors() {
         doctors.add(new Doctor("Dr. Smith", MedicalField.CARDIOLOGY));
@@ -32,8 +35,10 @@ public class MHRS {
 
         JButton registerButton = new JButton("Register");
         JButton loginButton = new JButton("Login");
+        JButton viewAppointmentsButton = new JButton("View Appointments");
         mainPanel.add(registerButton);
         mainPanel.add(loginButton);
+        mainPanel.add(viewAppointmentsButton);
 
         JPanel registerPanel = new JPanel();
         registerPanel.setLayout(new BoxLayout(registerPanel, BoxLayout.Y_AXIS));
@@ -72,17 +77,41 @@ public class MHRS {
         appointmentPanel.add(fieldComboBox);
         appointmentPanel.add(new JLabel("Choose a doctor:"));
         appointmentPanel.add(doctorComboBox);
+        appointmentPanel.add(new JLabel("Choose a day:"));
+        appointmentPanel.add(dayComboBox);
+        appointmentPanel.add(new JLabel("Choose a time:"));
+        appointmentPanel.add(timeComboBox);
         appointmentPanel.add(appointmentSubmitButton);
+
+        JPanel viewAppointmentsPanel = new JPanel();
+        viewAppointmentsPanel.setLayout(new BoxLayout(viewAppointmentsPanel, BoxLayout.Y_AXIS));
+        JTextArea appointmentsTextArea = new JTextArea(10, 30);
+        appointmentsTextArea.setEditable(false);
+        viewAppointmentsPanel.add(new JScrollPane(appointmentsTextArea));
+        JButton backButton = new JButton("Back");
+        viewAppointmentsPanel.add(backButton);
 
         contentPane.add(mainPanel, "Main");
         contentPane.add(registerPanel, "Register");
         contentPane.add(loginPanel, "Login");
         contentPane.add(appointmentPanel, "Appointment");
+        contentPane.add(viewAppointmentsPanel, "ViewAppointments");
 
         CardLayout cardLayout = (CardLayout) contentPane.getLayout();
 
         registerButton.addActionListener(e -> cardLayout.show(contentPane, "Register"));
         loginButton.addActionListener(e -> cardLayout.show(contentPane, "Login"));
+        viewAppointmentsButton.addActionListener(e -> {
+            if (loggedInUser != null) {
+                appointmentsTextArea.setText("");
+                for (Appointment appointment : loggedInUser.getAppointments()) {
+                    appendText(appointmentsTextArea, appointment.toString());
+                }
+                cardLayout.show(contentPane, "ViewAppointments");
+            } else {
+                JOptionPane.showMessageDialog(frame, "Please log in to view appointments.");
+            }
+        });
 
         registerSubmitButton.addActionListener(e -> {
             String id = registerIdField.getText();
@@ -107,6 +136,7 @@ public class MHRS {
                 return;
             }
 
+            loggedInUser = user;
             fieldComboBox.setSelectedIndex(0);
             updateDoctorsComboBox(fieldComboBox, doctorComboBox);
             fieldComboBox.addActionListener(event -> updateDoctorsComboBox(fieldComboBox, doctorComboBox));
@@ -115,13 +145,20 @@ public class MHRS {
 
         appointmentSubmitButton.addActionListener(e -> {
             Doctor chosenDoctor = (Doctor) doctorComboBox.getSelectedItem();
-            if (chosenDoctor != null) {
-                JOptionPane.showMessageDialog(frame, "Appointment made with Dr. " + chosenDoctor.getName() + " in " + chosenDoctor.getField() + ".");
+            String chosenDay = (String) dayComboBox.getSelectedItem();
+            String chosenTime = (String) timeComboBox.getSelectedItem();
+
+            if (chosenDoctor != null && chosenDay != null && chosenTime != null) {
+                Appointment appointment = new Appointment(chosenDoctor, chosenDay, chosenTime);
+                loggedInUser.addAppointment(appointment);
+                JOptionPane.showMessageDialog(frame, "Appointment made with Dr. " + chosenDoctor.getName() + " on " + chosenDay + " at " + chosenTime + ".");
                 cardLayout.show(contentPane, "Main");
+            } else {
+                JOptionPane.showMessageDialog(frame, "Please select a doctor, day, and time.");
             }
         });
 
-        frame.setVisible(true);
+        backButton.addActionListener(e -> frame.setVisible(true));
     }
 
     private static void updateDoctorsComboBox(JComboBox<MedicalField> fieldComboBox, JComboBox<Doctor> doctorComboBox) {
@@ -132,5 +169,34 @@ public class MHRS {
                 doctorComboBox.addItem(doctor);
             }
         }
+
+        doctorComboBox.addActionListener(e -> {
+            Doctor chosenDoctor = (Doctor) doctorComboBox.getSelectedItem();
+            if (chosenDoctor != null) {
+                updateDayAndTimeComboBoxes(chosenDoctor);
+            }
+        });
+    }
+
+    private static void updateDayAndTimeComboBoxes(Doctor chosenDoctor) {
+        dayComboBox.removeAllItems();
+        timeComboBox.removeAllItems();
+
+        for (Map.Entry<String, String> entry : chosenDoctor.getAvailability().entrySet()) {
+            dayComboBox.addItem(entry.getKey());
+        }
+
+        dayComboBox.addActionListener(e -> {
+            timeComboBox.removeAllItems();
+            String chosenDay = (String) dayComboBox.getSelectedItem();
+            if
+            (chosenDay != null) {
+                timeComboBox.addItem(chosenDoctor.getAvailability().get(chosenDay));
+            }
+        });
+    }
+
+    private static void appendText(JTextArea textArea, String text) {
+        textArea.append(text + "\n");
     }
 }
